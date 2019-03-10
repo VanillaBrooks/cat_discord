@@ -76,8 +76,8 @@ async def check_link(link_list):
         elif 'i.i' in link or 'i.r' in link:
             logging.info(f'found good link: {link}')
             good_links.append(link)
-            bad = False
-        if bad:
+            bad_link = False
+        if bad_link:
             logging.info(f'BAD LINK : {link}')
 
     return good_links
