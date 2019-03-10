@@ -43,7 +43,7 @@ class MyClient(discord.Client):
 
     async def send_the_file(self):
         for channel in client.get_all_channels():
-            if 'cat' == channel.name:
+            if 'cat' in channel.name:
                 logging.info(f'Sending file to channel: {channel}')
                 await client.send_file(channel, self.file)
 
