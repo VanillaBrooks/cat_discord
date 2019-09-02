@@ -91,6 +91,7 @@ async def check_link(link, logging):
     good_link = False
 
     # downlaod direct links to imgur and reddit
+    # https://v.redd.it/3jbsiqn1p7k31
     if 'i.i' in link or 'i.r' in link:
         logging.info(f'found good link: {link}')
         good_link = True
@@ -121,6 +122,7 @@ def logger_config():
 # iterates through list of good image links and tries to download one
 async def download_image(link):
     logging.info(f'downloading image link {link}')
+
     response = requests.get(link)
 
     try:
