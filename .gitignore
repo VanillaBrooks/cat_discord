@@ -1,5 +1,7 @@
 .vscode/
 __pycache__/
+logging/
 src/logging/
 src/api.py
+old_data.csv
 src/old_data.csv
