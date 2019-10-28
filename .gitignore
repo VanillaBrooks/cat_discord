@@ -5,3 +5,15 @@ src/logging/
 src/api.py
 old_data.csv
 src/old_data.csv
+
+
+#Added by cargo
+#
+#already existing elements are commented out
+
+/target
+**/*.rs.bk
+
+config.json
+temp/
+cargo.lock/
