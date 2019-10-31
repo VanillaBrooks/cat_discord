@@ -33,15 +33,21 @@ pub struct Post {
 
 impl Post {
     pub fn is_valid(&self) -> bool {
-        if self.is_self == true {
+        if self.is_self {
             return false;
         }
 
         if self.domain == "i.redd.it" || self.domain.contains("i.imgur") {
-            return true;
+            if let Some(flair) = &self.link_flair_css_class {
+                if flair != "humor" {
+                    return true;
+                }
+            } else {
+                return true;
+            }
         }
 
-        return false;
+        false
     }
     pub fn id(&self) -> &String {
         &self.id

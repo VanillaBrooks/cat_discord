@@ -3,34 +3,46 @@ use serde_json;
 
 use std::collections::HashSet;
 
-use parking_lot::RwLock;
+use parking_lot::{RwLock, Mutex};
 
-use serenity::{
-    model::gateway::Ready,
-    prelude::*,
-};
+use serenity::{model::gateway::Ready, prelude::*};
 
 use super::error;
 use super::files;
 use super::picture;
 
-const SLEEP_INTERVAL: u64 = 60 * 60;
+const SLEEP_INTERVAL: u64 = 60 * 60 * 3;
 
 struct Handler {
     api: files::Api,
     previous: RwLock<HashSet<String>>,
+    lock : Mutex<()>
 }
 impl Handler {
     fn new(api: files::Api, previous: HashSet<String>) -> Self {
         Handler {
             api,
             previous: RwLock::new(previous),
+            lock: Mutex::new(())
         }
     }
 }
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
+        
+        // make sure only 1 thread is ever "ready" at one time
+        let lock = self.lock.try_lock();
+
+        match lock {
+            Some(_) => (),
+            None => {
+                println!{"false startup detected"}
+                return
+            }
+        }
+        //
+
         dbg! {"ready"};
 
         // get all the channels to broadcast cat pictures too
@@ -40,31 +52,31 @@ impl EventHandler for Handler {
             .map(|x| x.id().channels(&ctx))
             .filter(|x| x.is_ok())
             .map(|x| x.unwrap())
-            .map(|x| x.into_iter().filter(|(_x, y)| y.name.contains("cat")))
+            .map(|x| {
+                x.into_iter()
+                    .filter(|(_x, y)| y.name.contains("cat-worship"))
+            })
             .flatten()
             .map(|(_x, y)| y)
             .collect::<Vec<_>>();
+            
+        dbg!{channels.len()};
 
         // loop forever to keep sending pictures out
         loop {
-            // dbg! {"cycling outer"};
+            let start = std::time::Instant::now();
 
             loop {
-                // dbg! {"cycling inner"};
-
-                let file_path = 
-                {
+                let file_path = {
                     let mut prev = self.previous.write();
 
                     // find a picture from the cache that we can post
                     picture::find_picture(&mut prev, &self.api)
-
                 };
 
                 // dbg! {"file path found,", &file_path};
 
                 if let Ok(path) = file_path {
-
                     let mut break_out = true;
 
                     let p = std::path::Path::new(&path);
@@ -74,27 +86,26 @@ impl EventHandler for Handler {
                         // send pictures until there is one without an error
                         let response = channel.send_files(&ctx, vec![p], |x| x);
                         // file was sent, quit
-                        if let Ok(_) = response {
+                        if response.is_ok() {
                             dbg! {"posted, good"};
                         }
                         // there was an error sensding the file to discord so we repeat the cycle
                         else {
-                            dbg! {"error. redoing"};
+                            dbg! {"error. redoing", &path};
                             std::thread::sleep(std::time::Duration::from_secs(2));
                             break_out = false;
                         }
                     });
 
                     if break_out {
-                        break
+                        break;
                     }
-
                 } else {
                     continue;
                 }
             }
 
-            let dur = std::time::Duration::from_secs(SLEEP_INTERVAL);
+            let dur = std::time::Duration::from_secs(SLEEP_INTERVAL) - start.elapsed();
             std::thread::sleep(dur);
         }
     }

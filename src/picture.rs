@@ -54,7 +54,7 @@ fn download_post(post: &files::Post, api: &files::Api) -> Result<String, error::
     // dbg! {"got response"};
 
     #[allow(unused_must_use)]
-    fs::create_dir("temp");
+    match fs::create_dir("temp") {_=>()}
 
     let _path = format! {"temp/{}.png", post.id()};
     let path = std::path::Path::new(&_path);
@@ -89,7 +89,7 @@ fn _get_previous_pictures() -> Result<HashSet<String>, std::io::Error> {
             // get only the data without the extension
             file_name
                 .unwrap()
-                .split(".")
+                .split('.')
                 .collect::<Vec<&str>>()
                 .remove(0)
                 .to_string()
