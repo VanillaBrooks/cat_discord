@@ -91,7 +91,7 @@ impl EventHandler for Handler {
                         }
                         // there was an error sensding the file to discord so we repeat the cycle
                         else {
-                            dbg! {"error. redoing", &path};
+                            println! {"error posting the picture at path {}:\n-----\n{:?}\n-------", &path, response};
                             std::thread::sleep(std::time::Duration::from_secs(2));
                             break_out = false;
                         }

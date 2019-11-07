@@ -37,7 +37,7 @@ impl Post {
             return false;
         }
 
-        if self.domain == "i.redd.it" || self.domain.contains("i.imgur") {
+        if (self.domain == "i.redd.it" || self.domain.contains("i.imgur") ) && !self.url.contains(".gif") {
             if let Some(flair) = &self.link_flair_css_class {
                 if flair != "humor" {
                     return true;
