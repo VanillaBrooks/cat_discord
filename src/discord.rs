@@ -14,7 +14,7 @@ use super::error;
 use super::files;
 use super::picture;
 
-const SLEEP_INTERVAL: u64 = 60 * 60;
+const SLEEP_INTERVAL: u64 = 60 * 60 * 3;
 
 struct Handler {
     api: files::Api,
