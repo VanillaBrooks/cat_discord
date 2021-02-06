@@ -5,12 +5,13 @@ use std::io::prelude::*;
 
 use super::error;
 use super::files;
-pub fn find_picture(
+
+pub async fn find_picture(
     previous: &mut HashSet<String>,
     api: &files::Api,
 ) -> Result<String, error::Error> {
     // dbg! {"getting posts"};
-    let posts = api.get_sub("https://old.reddit.com/r/cats/.json")?;
+    let posts = api.get_sub("https://old.reddit.com/r/cats/.json").await?;
     // dbg! {"got posts"};
     let mut link_posts = posts
         .into_iter()
@@ -30,13 +31,12 @@ pub fn find_picture(
         }
     });
 
-    // dbg! {&link_posts};
     for _ in 0..link_posts.len() {
         let post = link_posts.remove(0);
 
         // dbg! {&post};
 
-        if let Ok(file_name) = download_post(&post, &api) {
+        if let Ok(file_name) = download_post(&post, &api).await {
             previous.insert(post.id_own());
             return Ok(file_name);
         } else {
@@ -47,14 +47,14 @@ pub fn find_picture(
     Err(error::Error::Picture(error::PictureError::NoValidPictures))
 }
 
-fn download_post(post: &files::Post, api: &files::Api) -> Result<String, error::PictureError> {
+async fn download_post(
+    post: &files::Post,
+    api: &files::Api,
+) -> Result<String, error::PictureError> {
     // dbg! {"downloading picture"};
-    let mut res = api.download_picture(post.url())?;
+    let res = api.download_picture(post.url()).await?;
 
-    // dbg! {"got response"};
-
-    #[allow(unused_must_use)]
-    fs::create_dir("temp");
+    fs::create_dir("temp").ok();
 
     let _path = format! {"temp/{}.png", post.id()};
     let path = std::path::Path::new(&_path);
@@ -62,8 +62,7 @@ fn download_post(post: &files::Post, api: &files::Api) -> Result<String, error::
 
     // dbg! {&_path};
 
-    let mut buffer = Vec::with_capacity(10_000);
-    res.read_to_end(&mut buffer)?;
+    let buffer = res.bytes().await?;
 
     file.write_all(&buffer)?;
 

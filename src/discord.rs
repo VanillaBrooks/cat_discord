@@ -2,19 +2,17 @@ use serde::Deserialize;
 use serde_json;
 
 use std::collections::HashSet;
+use tokio::sync::RwLock;
 
-use parking_lot::RwLock;
-
-use serenity::{
-    model::gateway::Ready,
-    prelude::*,
-};
+use serenity::async_trait;
+use serenity::{model::gateway::Ready, prelude::*};
 
 use super::error;
 use super::files;
 use super::picture;
 
-const SLEEP_INTERVAL: u64 = 60 * 60 * 3;
+// post a single picture a day
+const SLEEP_INTERVAL: u64 = 60 * 60 * 24;
 
 struct Handler {
     api: files::Api,
@@ -29,66 +27,59 @@ impl Handler {
     }
 }
 
+#[async_trait]
 impl EventHandler for Handler {
-    fn ready(&self, ctx: Context, ready: Ready) {
-        dbg! {"ready"};
-
+    async fn ready(&self, ctx: Context, ready: Ready) {
         // get all the channels to broadcast cat pictures too
-        let channels = ready
-            .guilds
-            .into_iter()
-            .map(|x| x.id().channels(&ctx))
-            .filter(|x| x.is_ok())
-            .map(|x| x.unwrap())
-            .map(|x| x.into_iter().filter(|(_x, y)| y.name.contains("cat")))
-            .flatten()
-            .map(|(_x, y)| y)
-            .collect::<Vec<_>>();
+        let mut _channels = Vec::new();
+
+        for guild in ready.guilds.into_iter() {
+            let channels = guild.id().channels(&ctx).await;
+            if let Ok(channels) = channels {
+                for (_channel_id, guild_channel) in channels.into_iter() {
+                    if guild_channel.name.contains("cat") {
+                        _channels.push(guild_channel)
+                    }
+                }
+            }
+        }
+
+        let channels = _channels;
 
         // loop forever to keep sending pictures out
         loop {
-            // dbg! {"cycling outer"};
-
             loop {
-                // dbg! {"cycling inner"};
-
-                let file_path = 
-                {
-                    let mut prev = self.previous.write();
+                let file_path = {
+                    let mut prev = self.previous.write().await;
 
                     // find a picture from the cache that we can post
-                    picture::find_picture(&mut prev, &self.api)
-
+                    picture::find_picture(&mut prev, &self.api).await
                 };
 
                 // dbg! {"file path found,", &file_path};
 
                 if let Ok(path) = file_path {
-
                     let mut break_out = true;
 
                     let p = std::path::Path::new(&path);
 
                     // cycle through channels and post the picture
-                    channels.iter().for_each(|channel| {
-                        // send pictures until there is one without an error
-                        let response = channel.send_files(&ctx, vec![p], |x| x);
+                    for channel in channels.iter() {
+                        let response = channel.send_files(&ctx, vec![p], |x| x).await;
+
                         // file was sent, quit
                         if let Ok(_) = response {
-                            dbg! {"posted, good"};
                         }
-                        // there was an error sensding the file to discord so we repeat the cycle
+                        // there was an error sending the file to discord so we repeat the cycle
                         else {
-                            dbg! {"error. redoing"};
                             std::thread::sleep(std::time::Duration::from_secs(2));
                             break_out = false;
-                        }
-                    });
-
-                    if break_out {
-                        break
+                        };
                     }
 
+                    if break_out {
+                        break;
+                    }
                 } else {
                     continue;
                 }
@@ -116,14 +107,19 @@ impl DiscordConfig {
     }
 }
 
-pub fn start_bot(previous: HashSet<String>, api: files::Api) -> Result<(), error::DiscordError> {
+pub async fn start_bot(
+    previous: HashSet<String>,
+    api: files::Api,
+) -> Result<(), error::DiscordError> {
     let config = DiscordConfig::new()?;
 
     let handler = Handler::new(api, previous);
 
-    let mut bot = Client::new(config.token, handler)?;
+    let mut bot = Client::builder(&config.token)
+        .event_handler(handler)
+        .await?;
 
-    if let Err(why) = bot.start() {
+    if let Err(why) = bot.start().await {
         println! {"bot error!!!"}
         dbg! {&why};
         return Err(error::DiscordError::from(why));

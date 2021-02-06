@@ -66,18 +66,20 @@ impl Api {
             client: reqwest::Client::new(),
         }
     }
-    pub fn get_sub(&self, url: &str) -> Result<Vec<Post>, error::FilesError> {
-        let res = self.client.get(url).send()?;
+    pub async fn get_sub(&self, url: &str) -> Result<Vec<Post>, error::FilesError> {
+        let res = self.client.get(url).send().await?.bytes().await?;
 
-        let data: RedditData = serde_json::from_reader(res)?;
-        // dbg! {"got data"};
+        let data: RedditData = serde_json::from_slice(&res)?;
 
         let posts = data.data.children.into_iter().map(|x| x.data).collect();
         Ok(posts)
     }
 
-    pub fn download_picture(&self, url: &str) -> Result<reqwest::Response, error::PictureError> {
-        let res = self.client.get(url).send()?;
+    pub async fn download_picture(
+        &self,
+        url: &str,
+    ) -> Result<reqwest::Response, error::PictureError> {
+        let res = self.client.get(url).send().await?;
         Ok(res)
     }
 }
