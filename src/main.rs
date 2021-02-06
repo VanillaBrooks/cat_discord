@@ -3,11 +3,12 @@ mod error;
 mod files;
 mod picture;
 
-fn main() {
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
     let api = files::Api::new();
 
     let prev = picture::get_previous_pictures();
-    let x = discord::start_bot(prev, api);
+    let x = discord::start_bot(prev, api).await;
     #[allow(unused_must_use)]
-    dbg!{x};
+    dbg! {&x};
 }
